@@ -1,3 +1,5 @@
 - Added analog filter option
 - Added ADS111X analog source
 - Added user configurable axis encoder ratios for setups with reductions
+- Added some analog autorange margin
+- Added min/max commands for apin
