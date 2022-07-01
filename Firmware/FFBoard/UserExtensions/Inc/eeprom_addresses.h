@@ -10,11 +10,11 @@
 
 #include "main.h"
 // Change this to the amount of currently registered variables
-#define NB_OF_VAR	103
+#define NB_OF_VAR	127
 extern const uint16_t VirtAddVarTab[NB_OF_VAR];
 
 // Amount of variables in exportable list
-#define NB_EXPORTABLE_ADR 89
+#define NB_EXPORTABLE_ADR 113
 extern const uint16_t exportableFlashAddresses[NB_EXPORTABLE_ADR];
 
 
@@ -195,5 +195,35 @@ uint16_t EE_ReadVariable(uint16_t VirtAddress, uint16_t* Data) will return 1 if 
 // Biss-C
 #define ADR_BISSENC_CONF1				0x410
 #define ADR_BISSENC_OFS					0x411
+
+
+
+// Analog min/max calibrations
+#define ADR_LOCALANALOG_MIN_0			0x500
+#define ADR_LOCALANALOG_MAX_0			0x501
+#define ADR_LOCALANALOG_MIN_1			0x502
+#define ADR_LOCALANALOG_MAX_1			0x503
+#define ADR_LOCALANALOG_MIN_2			0x504
+#define ADR_LOCALANALOG_MAX_2			0x505
+#define ADR_LOCALANALOG_MIN_3			0x506
+#define ADR_LOCALANALOG_MAX_3			0x507
+#define ADR_LOCALANALOG_MIN_4			0x508
+#define ADR_LOCALANALOG_MAX_4			0x509
+#define ADR_LOCALANALOG_MIN_5			0x50A
+#define ADR_LOCALANALOG_MAX_5			0x50B
+#define ADR_LOCALANALOG_MIN_6			0x50C
+#define ADR_LOCALANALOG_MAX_6			0x50D
+#define ADR_LOCALANALOG_MIN_7			0x50E
+#define ADR_LOCALANALOG_MAX_7			0x50F
+
+#define ADR_ADS111X_MIN_0				0x510
+#define ADR_ADS111X_MAX_0				0x511
+#define ADR_ADS111X_MIN_1				0x512
+#define ADR_ADS111X_MAX_1				0x513
+#define ADR_ADS111X_MIN_2				0x514
+#define ADR_ADS111X_MAX_2				0x515
+#define ADR_ADS111X_MIN_3				0x516
+#define ADR_ADS111X_MAX_3				0x517
+
 
 #endif /* EEPROM_ADDRESSES_H_ */
