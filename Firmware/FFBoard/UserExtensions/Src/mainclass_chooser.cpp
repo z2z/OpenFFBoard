@@ -19,7 +19,7 @@
 #ifdef TMCDEBUG
 #include "TMCDebugBridge.h"
 #endif
-#ifdef MIDI
+#ifdef MIDITMC
 #include "MidiMain.h"
 #endif
 #ifdef CANBRIDGE
@@ -27,6 +27,9 @@
 #endif
 #ifdef FFBHIDEXT
 #include "FFBHIDExt.h"
+#endif
+#ifdef MIDIFLOPPY
+#include "MidiFloppyMain.h"
 #endif
 
 // Add all classes here
@@ -50,8 +53,12 @@ const std::vector<class_entry<FFBoardMain>> class_registry =
 		add_class<TMCDebugBridge,FFBoardMain>(),
 #endif
 
-#ifdef MIDI
+#ifdef MIDITMC
 		add_class<MidiMain,FFBoardMain>(),
+#endif
+
+#ifdef MIDIFLOPPY
+		add_class<MidiFloppyMain,FFBoardMain>(),
 #endif
 
 #ifdef CANBRIDGE

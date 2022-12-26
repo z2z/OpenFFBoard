@@ -22,12 +22,12 @@
 // Enabled features
 
 // Main classes
-#define FFBWHEEL
-#define FFBJOYSTICK
-#define MIDI
-#define TMCDEBUG
-#define CANBRIDGE
-#define FFBHIDEXT
+//#define FFBWHEEL
+//#define FFBJOYSTICK
+//#define TMCDEBUG
+//#define CANBRIDGE
+//#define FFBHIDEXT
+#define MIDIFLOPPY
 
 /*
  * FFBWheel uses 2 FFB axis descriptor instead of 1 axis.
@@ -36,25 +36,25 @@
 //#define FFBWHEEL_USE_1AXIS_DESC
 
 // Extra features
-#define LOCALBUTTONS
-#define SPIBUTTONS
-#define SHIFTERBUTTONS
-#define PCF8574BUTTONS // Requires I2C
-#define ANALOGAXES
-#define TMC4671DRIVER
-#define PWMDRIVER
-#define LOCALENCODER
-#define CANBUS
-#define ODRIVE
-#define VESC
-#define MTENCODERSPI // requires SPI3
-#define CANBUTTONS // Requires CAN
-#define CANANALOG // Requires CAN
-#define BISSENCODER // Requires SPI3
-#define SSIENCODER // Requires SPI3
-#define ADS111XANALOG // Requires I2C
+//#define LOCALBUTTONS
+//#define SPIBUTTONS
+//#define SHIFTERBUTTONS
+//#define PCF8574BUTTONS // Requires I2C
+//#define ANALOGAXES
+//#define TMC4671DRIVER
+//#define PWMDRIVER
+//#define LOCALENCODER
+//#define CANBUS
+//#define ODRIVE
+//#define VESC
+//#define MTENCODERSPI // requires SPI3
+//#define CANBUTTONS // Requires CAN
+//#define CANANALOG // Requires CAN
+//#define BISSENCODER // Requires SPI3
+//#define SSIENCODER // Requires SPI3
+//#define ADS111XANALOG // Requires I2C
 #define UARTCOMMANDS
-#define SIMPLEMOTION // Requires motor gpio pin
+//#define SIMPLEMOTION // Requires motor gpio pin
 
 //----------------------
 #define BTNFAILSAFE // Use user button to force board into failsafe mainclass
