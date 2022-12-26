@@ -6,7 +6,7 @@
  */
 
 #include "target_constants.h"
-#ifdef MIDI
+#ifdef MIDITMC
 #include <MidiMain.h>
 
 #include "math.h"

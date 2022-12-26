@@ -8,6 +8,7 @@
 #ifndef SRC_MIDIHANDLER_H_
 #define SRC_MIDIHANDLER_H_
 #include "target_constants.h"
+#include "constants.h"
 #ifdef MIDI
 #include "cppmain.h"
 

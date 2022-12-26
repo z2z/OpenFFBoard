@@ -9,7 +9,7 @@
 #ifndef MidiMAIN_H_
 #define MidiMAIN_H_
 #include "target_constants.h"
-#ifdef MIDI
+#ifdef MIDITMC
 #include <FFBoardMain.h>
 #include "cppmain.h"
 #include "TMC4671.h"

@@ -50,4 +50,8 @@ static const uint8_t SW_VERSION_INT[3] = {1,13,3}; // Version as array. 8 bit ea
 #endif
 
 
+#ifdef MIDITMC
+#define MIDI
+#endif
+
 #endif
