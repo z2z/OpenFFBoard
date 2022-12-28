@@ -76,6 +76,9 @@ public:
 	void sendFrequency(uint8_t adr,float freq,uint8_t bus = 0);
 	void sendCommand(midifloppy_spi_cmd& cmd,uint8_t bus=0);
 
+	void beginSpiTransfer(SPIPort* port);
+	void endSpiTransfer(SPIPort* port);
+
 	void timerElapsed(TIM_HandleTypeDef* htim);
 
 	virtual std::string getHelpstring(){
@@ -92,14 +95,14 @@ private:
 	volatile bool updateflag = false;
 	float noteToFreq[128] = {0};
 	std::vector<MidiNote> notes[channels];
-	bool active[channels] = {false};
+	float active[channels] = {false};
 
 	const uint16_t period = 100;//71;	// Microseconds
 	float periodf = period / 1000000.0; // seconds
 
-	OutputPin cs1 = OutputPin(*SPI1_SS1_GPIO_Port, SPI1_SS1_Pin);
-	OutputPin cs2 = OutputPin(*SPI1_SS2_GPIO_Port, SPI1_SS2_Pin);
-	OutputPin cs3 = OutputPin(*SPI1_SS3_GPIO_Port, SPI1_SS3_Pin);
+	static const OutputPin cs1;
+	static const OutputPin cs2;
+	static const OutputPin cs3;
 
 
 	static const uint8_t ADR_BROADCAST = 0xff;
@@ -118,7 +121,7 @@ private:
 	static const uint8_t CMD_DATAMODE = 0x20;
 	static const uint8_t CMD_DATASEEK = 0x21; // Seek to track, head and sector
 	static const uint8_t CMD_READSECTOR = 0xD5; // Replies a full sector 512B
-
+	std::vector<midifloppy_spi_cmd> cmdbuffer;
 };
 
 #endif /* MidiMAIN_H_ */
