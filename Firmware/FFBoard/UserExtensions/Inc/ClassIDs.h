@@ -42,6 +42,7 @@ enum class ClassType : uint16_t {
 #define CLSID_MAIN_CAN	 	0xC
 #define CLSID_MAIN_MIDI 	0xD
 #define CLSID_MAIN_MIDI_FLOPPY 	0xE
+#define CLSID_MAIN_GW_FLOPPY 	0xF
 #define CLSID_SYSTEM		0x10 // sys main command thread
 #define CLSID_ERRORS		0x11
 
