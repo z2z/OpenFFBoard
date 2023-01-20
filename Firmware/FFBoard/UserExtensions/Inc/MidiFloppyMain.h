@@ -1,13 +1,13 @@
 /*
- * MidiMain.h
+ * MidiFloppyMain.h
  *
  *  Created on: 23.01.2020
  *      Author: Yannick
  */
 
-// TODO rewrite for tinyusb!
-#ifndef MidiMAIN_H_
-#define MidiMAIN_H_
+
+#ifndef MidiFloppyMAIN_H_
+#define MidiFloppyMAIN_H_
 #include "target_constants.h"
 #ifdef MIDIFLOPPY
 #include <FFBoardMain.h>
@@ -19,6 +19,10 @@
 #include "MidiHandler.h"
 #include "thread.hpp"
 #include "SPI.h"
+
+#if (USE_SPI_CRC == 0U)
+#error "CRC must be enabled!"
+#endif
 
 struct MidiNote{
 	uint8_t note = 0;
@@ -138,7 +142,7 @@ private:
 
 
 };
-
+/*
 // From Adafruit_Floppy project
 #define GW_FIRMVER_MAJOR 1
 #define GW_FIRMVER_MINOR 0
@@ -216,6 +220,6 @@ private:
 	uint32_t captured_pulses;
 	uint8_t curAdr = 0;
 };
-
+*/
 #endif /* MidiMAIN_H_ */
 #endif

@@ -79,14 +79,6 @@ FloppyMain_itf::FloppyMain_itf() : SPIDevice{motor_spi,FloppyMain_itf::cs1}{
 
 	motor_spi.configurePort(&this->spiConfig.peripheral);
 
-
-
-
-	//CommandHandler::registerCommands();
-//	registerCommand("power", MidiMain_commands::power, "Intensity",CMDFLAG_GET|CMDFLAG_SET);
-//	registerCommand("range", MidiMain_commands::range, "Range of phase change",CMDFLAG_GET|CMDFLAG_SET);
-
-
 }
 
 /*
@@ -104,7 +96,7 @@ void FloppyMain_itf::beginSpiTransfer(SPIPort* port){
  * Gives a semaphore back and resets the CS pin
  */
 void FloppyMain_itf::endSpiTransfer(SPIPort* port){
-	uint32_t cnt = 100;
+	uint32_t cnt = 100; // 100
 	while(cnt--){asm("nop");} // Do nothing before resetting CS
 	clearChipSelect();
 	port->giveSemaphore();
@@ -260,139 +252,139 @@ void FloppyMain_itf::usbInit(){
 	usbdev->registerUsb();
 }
 
-
-
-///////// Greaseweazle interface
-const tusb_desc_device_t usb_devdesc_greaseweazle =
-{
-    .bLength            = sizeof(tusb_desc_device_t),
-    .bDescriptorType    = TUSB_DESC_DEVICE,
-    .bcdUSB             = 0x0200,
-
-    // As required by USB Specs IAD's subclass must be common class (2) and protocol must be IAD (1)
-    .bDeviceClass       = TUSB_CLASS_MISC,
-    .bDeviceSubClass    = MISC_SUBCLASS_COMMON,
-    .bDeviceProtocol    = MISC_PROTOCOL_IAD,
-    .bMaxPacketSize0    = CFG_TUD_ENDPOINT0_SIZE,
-
-    .idVendor           = 0x2109, // Greaseweazle id
-    .idProduct          = 0x0812,
-    .bcdDevice          = 0x0100,
-
-    .iManufacturer      = 0x01,
-    .iProduct           = 0x02,
-    .iSerialNumber      = 0x03,
-
-    .bNumConfigurations = 0x01
-};
-void GWFloppyMain::usbInit(){
-	this->usbdev = std::make_unique<USBdevice>(&usb_devdesc_greaseweazle,usb_cdc_conf,&usb_ffboard_strings_default);
-	usbdev->registerUsb();
-}
-GWFloppyMain::GWFloppyMain(){
-	CommandHandler::registerCommand("reset", GWFloppyMain_commands::reset, "Reset drive", CMDFLAG_GET | CMDFLAG_GETADR);
-	CommandHandler::registerCommand("read", GWFloppyMain_commands::readTrack, "Read track", CMDFLAG_GET | CMDFLAG_GETADR);
-}
-
-GWFloppyMain::~GWFloppyMain(){
-
-}
-
-void GWFloppyMain::cdcRcv(char* Buf, uint32_t *Len){
-
-	/*
-	 * For writing some buffering may be required if it is sent in multiple blocks.
-	 */
-	char cmdbyte = *Buf; // First byte is command
-	uint8_t i = 0; // Buffer start
-	switch(cmdbyte){
-	case GW_CMD_GETINFO:
-	{
-		uint8_t sub_cmd = Buf[2];
-		if (sub_cmd == GW_CMD_GETINFO_FIRMWARE) {
-		      reply_buffer[i++] = GW_ACK_OK;
-		      reply_buffer[i++] = GW_FIRMVER_MAJOR; // 1 byte
-		      reply_buffer[i++] = GW_FIRMVER_MINOR; // 1 byte
-		      reply_buffer[i++] = 1; // is main firm
-		      reply_buffer[i++] = GW_MAXCMD;
-		      uint32_t samplefreq = 0; // TODO measure frequency
-		      reply_buffer[i++] = samplefreq & 0xFF;
-		      reply_buffer[i++] = (samplefreq >> 8) & 0xFF;
-		      reply_buffer[i++] = (samplefreq >> 16) & 0xFF;
-		      reply_buffer[i++] = (samplefreq >> 24) & 0xFF;
-		      reply_buffer[i++] = GW_HW_MODEL;
-		      reply_buffer[i++] = GW_HW_SUBMODEL;
-		      reply_buffer[i++] = GW_USB_SPEED;
-		}else if (sub_cmd == GW_CMD_GETINFO_BANDWIDTH) {
-			// TODO should probably measure bandwidth of SPI as well
-		      reply_buffer[i++] = GW_ACK_OK;
-		      uint32_t min_bytes = transfered_bytes;
-		      uint32_t max_bytes = transfered_bytes;
-		      uint32_t min_usec =  bandwidth_timer * 1000;
-		      uint32_t max_usec =  bandwidth_timer * 1000;
-
-		      reply_buffer[i++] = min_bytes & 0xFF;
-		      reply_buffer[i++] = min_bytes >> 8;
-		      reply_buffer[i++] = min_bytes >> 16;
-		      reply_buffer[i++] = min_bytes >> 24;
-		      reply_buffer[i++] = min_usec & 0xFF;
-		      reply_buffer[i++] = min_usec >> 8;
-		      reply_buffer[i++] = min_usec >> 16;
-		      reply_buffer[i++] = min_usec >> 24;
-		      reply_buffer[i++] = max_bytes & 0xFF;
-		      reply_buffer[i++] = max_bytes >> 8;
-		      reply_buffer[i++] = max_bytes >> 16;
-		      reply_buffer[i++] = max_bytes >> 24;
-		      reply_buffer[i++] = max_usec & 0xFF;
-		      reply_buffer[i++] = max_usec >> 8;
-		      reply_buffer[i++] = max_usec >> 16;
-		      reply_buffer[i++] = max_usec >> 24;
-		}
-
-		break;
-	}
-	case GW_CMD_RESET:
-	{ // Send reset spi command
-		midifloppy_spi_cmd cmdreply;
-		cmdreply.adr = curAdr;
-		cmdreply.cmd = CMD_RESET;
-		sendCommand(cmdreply, 0);
-		break;
-	}
-	case GW_CMD_SETBUSTYPE: // We can only read 3.5" anyways
-		reply_buffer[i++] = GW_ACK_BADCMD;
-		break;
-
-
-
-	// If not a GW command
-	default:
-	{
-		FFBoardMain::cdcRcv(Buf, Len);
-		break;
-	}
-	}
-
-}
-
-CommandStatus GWFloppyMain::command(const ParsedCommand& cmd,std::vector<CommandReply>& replies){
-	CommandStatus result = CommandStatus::OK;
-	switch(static_cast<GWFloppyMain_commands>(cmd.cmdId)){
-	case reset:
-		if(cmd.type == CMDtype::get){
-			resetDrive(curAdr);
-		}else if(cmd.type == CMDtype::getat){
-			resetDrive(cmd.adr);
-		}
-		break;
-
-
-	default:
-		result = CommandStatus::NOT_FOUND;
-		break;
-	}
-	return result;
-}
-
+//
+//
+/////////// Greaseweazle interface
+//const tusb_desc_device_t usb_devdesc_greaseweazle =
+//{
+//    .bLength            = sizeof(tusb_desc_device_t),
+//    .bDescriptorType    = TUSB_DESC_DEVICE,
+//    .bcdUSB             = 0x0200,
+//
+//    // As required by USB Specs IAD's subclass must be common class (2) and protocol must be IAD (1)
+//    .bDeviceClass       = TUSB_CLASS_MISC,
+//    .bDeviceSubClass    = MISC_SUBCLASS_COMMON,
+//    .bDeviceProtocol    = MISC_PROTOCOL_IAD,
+//    .bMaxPacketSize0    = CFG_TUD_ENDPOINT0_SIZE,
+//
+//    .idVendor           = 0x2109, // Greaseweazle id
+//    .idProduct          = 0x0812,
+//    .bcdDevice          = 0x0100,
+//
+//    .iManufacturer      = 0x01,
+//    .iProduct           = 0x02,
+//    .iSerialNumber      = 0x03,
+//
+//    .bNumConfigurations = 0x01
+//};
+//void GWFloppyMain::usbInit(){
+//	this->usbdev = std::make_unique<USBdevice>(&usb_devdesc_greaseweazle,usb_cdc_conf,&usb_ffboard_strings_default);
+//	usbdev->registerUsb();
+//}
+//GWFloppyMain::GWFloppyMain(){
+//	CommandHandler::registerCommand("reset", GWFloppyMain_commands::reset, "Reset drive", CMDFLAG_GET | CMDFLAG_GETADR);
+//	CommandHandler::registerCommand("read", GWFloppyMain_commands::readTrack, "Read track", CMDFLAG_GET | CMDFLAG_GETADR);
+//}
+//
+//GWFloppyMain::~GWFloppyMain(){
+//
+//}
+//
+//void GWFloppyMain::cdcRcv(char* Buf, uint32_t *Len){
+//
+//	/*
+//	 * For writing some buffering may be required if it is sent in multiple blocks.
+//	 */
+//	char cmdbyte = *Buf; // First byte is command
+//	uint8_t i = 0; // Buffer start
+//	switch(cmdbyte){
+//	case GW_CMD_GETINFO:
+//	{
+//		uint8_t sub_cmd = Buf[2];
+//		if (sub_cmd == GW_CMD_GETINFO_FIRMWARE) {
+//		      reply_buffer[i++] = GW_ACK_OK;
+//		      reply_buffer[i++] = GW_FIRMVER_MAJOR; // 1 byte
+//		      reply_buffer[i++] = GW_FIRMVER_MINOR; // 1 byte
+//		      reply_buffer[i++] = 1; // is main firm
+//		      reply_buffer[i++] = GW_MAXCMD;
+//		      uint32_t samplefreq = 0; // TODO measure frequency
+//		      reply_buffer[i++] = samplefreq & 0xFF;
+//		      reply_buffer[i++] = (samplefreq >> 8) & 0xFF;
+//		      reply_buffer[i++] = (samplefreq >> 16) & 0xFF;
+//		      reply_buffer[i++] = (samplefreq >> 24) & 0xFF;
+//		      reply_buffer[i++] = GW_HW_MODEL;
+//		      reply_buffer[i++] = GW_HW_SUBMODEL;
+//		      reply_buffer[i++] = GW_USB_SPEED;
+//		}else if (sub_cmd == GW_CMD_GETINFO_BANDWIDTH) {
+//			// TODO should probably measure bandwidth of SPI as well
+//		      reply_buffer[i++] = GW_ACK_OK;
+//		      uint32_t min_bytes = transfered_bytes;
+//		      uint32_t max_bytes = transfered_bytes;
+//		      uint32_t min_usec =  bandwidth_timer * 1000;
+//		      uint32_t max_usec =  bandwidth_timer * 1000;
+//
+//		      reply_buffer[i++] = min_bytes & 0xFF;
+//		      reply_buffer[i++] = min_bytes >> 8;
+//		      reply_buffer[i++] = min_bytes >> 16;
+//		      reply_buffer[i++] = min_bytes >> 24;
+//		      reply_buffer[i++] = min_usec & 0xFF;
+//		      reply_buffer[i++] = min_usec >> 8;
+//		      reply_buffer[i++] = min_usec >> 16;
+//		      reply_buffer[i++] = min_usec >> 24;
+//		      reply_buffer[i++] = max_bytes & 0xFF;
+//		      reply_buffer[i++] = max_bytes >> 8;
+//		      reply_buffer[i++] = max_bytes >> 16;
+//		      reply_buffer[i++] = max_bytes >> 24;
+//		      reply_buffer[i++] = max_usec & 0xFF;
+//		      reply_buffer[i++] = max_usec >> 8;
+//		      reply_buffer[i++] = max_usec >> 16;
+//		      reply_buffer[i++] = max_usec >> 24;
+//		}
+//
+//		break;
+//	}
+//	case GW_CMD_RESET:
+//	{ // Send reset spi command
+//		midifloppy_spi_cmd cmdreply;
+//		cmdreply.adr = curAdr;
+//		cmdreply.cmd = CMD_RESET;
+//		sendCommand(cmdreply, 0);
+//		break;
+//	}
+//	case GW_CMD_SETBUSTYPE: // We can only read 3.5" anyways
+//		reply_buffer[i++] = GW_ACK_BADCMD;
+//		break;
+//
+//
+//
+//	// If not a GW command
+//	default:
+//	{
+//		FFBoardMain::cdcRcv(Buf, Len);
+//		break;
+//	}
+//	}
+//
+//}
+//
+//CommandStatus GWFloppyMain::command(const ParsedCommand& cmd,std::vector<CommandReply>& replies){
+//	CommandStatus result = CommandStatus::OK;
+//	switch(static_cast<GWFloppyMain_commands>(cmd.cmdId)){
+//	case GWFloppyMain_commands::reset:
+//		if(cmd.type == CMDtype::get){
+//			resetDrive(curAdr);
+//		}else if(cmd.type == CMDtype::getat){
+//			resetDrive(cmd.adr);
+//		}
+//		break;
+//
+//
+//	default:
+//		result = CommandStatus::NOT_FOUND;
+//		break;
+//	}
+//	return result;
+//}
+//*/
 
 #endif
