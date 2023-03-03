@@ -40,6 +40,7 @@ class FFBHIDMain: public FFBoardMain, public cpp_freertos::Thread, PersistentSto
 
 public:
 	FFBHIDMain(uint8_t axisCount);
+	FFBHIDMain(uint8_t axisCount,const std::vector<class_entry<ButtonSource>>& button_sources,const std::vector<class_entry<AnalogSource>>& analog_sources);
 	virtual ~FFBHIDMain();
 	void setFFBEffectsCalc(std::shared_ptr<EffectsControlItf> ffb,std::shared_ptr<EffectsCalculatorItf> effects_calc);
 
@@ -82,10 +83,19 @@ public:
 
 	void systick();
 
+
+	static const std::vector<class_entry<ButtonSource>> button_sources;
+
 protected:
 	std::shared_ptr<EffectsControlItf> ffb;
 	std::shared_ptr<EffectsCalculatorItf> effects_calc;
 	uint8_t axisCount=0;
+
+	virtual uint8_t updateAnalog();
+	virtual uint8_t updateButtons(uint8_t initialShift = 0);
+	virtual uint8_t readInternalButtons(uint64_t* btn){return 0;};
+
+	reportHID_t reportHID;
 
 private:
 	volatile Control_t control;
@@ -112,7 +122,6 @@ private:
 	std::vector<std::unique_ptr<ButtonSource>> btns;
 	std::vector<std::unique_ptr<AnalogSource>> analog_inputs;
 
-	reportHID_t reportHID;
 	reportHID_t lastReportHID;
 	uint8_t reportSendCounter = 0;
 

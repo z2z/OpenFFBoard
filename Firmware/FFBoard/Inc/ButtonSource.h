@@ -32,6 +32,7 @@ public:
 	static bool isCreatable() {return true;};
 	virtual const ClassType getClassType() {return ClassType::Buttonsource;};
 
+	static const std::vector<class_entry<ButtonSource>> all_button_sources;
 protected:
 	uint16_t btnnum = 0; // Amount of active buttons (valid bitfield length) to report
 };

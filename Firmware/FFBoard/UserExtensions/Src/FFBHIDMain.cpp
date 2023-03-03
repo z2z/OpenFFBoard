@@ -11,78 +11,40 @@
 #include "tusb.h"
 #include "usb_hid_ffb_desc.h"
 
-#include "SPIButtons.h"
-#include "CanButtons.h"
-#include "LocalButtons.h"
-#include <ShifterAnalog.h>
-#include "PCF8574.h"
-
-#include "LocalAnalog.h"
-#include "CanAnalog.h"
-#include "ADS111X.h"
-
 #include "cmsis_os.h"
 extern osThreadId_t defaultTaskHandle;
 
-//////////////////////////////////////////////
-/*
- * Sources for class choosers here
- */
-// Register possible button sources (id 0-15)
-const std::vector<class_entry<ButtonSource>> button_sources =
-{
-#ifdef LOCALBUTTONS
-		add_class<LocalButtons,ButtonSource>(0),
-#endif
-#ifdef SPIBUTTONS
-		add_class<SPI_Buttons_1,ButtonSource>(1),
-#endif
-#ifdef SPIBUTTONS2
-		add_class<SPI_Buttons_2,ButtonSource>(2),
-#endif
-#ifdef SHIFTERBUTTONS
-		add_class<ShifterAnalog,ButtonSource>(3),
-#endif
-#ifdef PCF8574BUTTONS
-		add_class<PCF8574Buttons,ButtonSource>(4),
-#endif
-#ifdef CANBUTTONS
-		add_class<CanButtons,ButtonSource>(5),
-#endif
-};
-
-// Register possible analog sources (id 0-15)
-const std::vector<class_entry<AnalogSource>> analog_sources =
-{
-#ifdef ANALOGAXES
-		add_class<LocalAnalog,AnalogSource>(0),
-#endif
-#ifdef CANANALOG
-		add_class<CanAnalog<8>,AnalogSource>(1),
-#endif
-#ifdef ADS111XANALOG
-		add_class<ADS111X_AnalogSource,AnalogSource>(2),
-#endif
-};
 
 /**
+ * Base constructor
  * setFFBEffectsCalc must be called in constructor of derived class to finish the setup
  */
-FFBHIDMain::FFBHIDMain(uint8_t axisCount) :
-		Thread("FFBMAIN", 256, 30),axisCount(axisCount),btn_chooser(button_sources),analog_chooser(analog_sources)
+FFBHIDMain::FFBHIDMain(uint8_t axisCount,const std::vector<class_entry<ButtonSource>>& button_sources,const std::vector<class_entry<AnalogSource>>& analog_sources) :
+	Thread("FFBMAIN", 256, 30),axisCount(axisCount),btn_chooser(button_sources),analog_chooser(analog_sources)
 {
 
-	restoreFlash(); // Load parameters
-	registerCommands();
+restoreFlash(); // Load parameters
+registerCommands();
 
 
 #ifdef E_STOP_Pin
-	bool estopState = HAL_GPIO_ReadPin(E_STOP_GPIO_Port, E_STOP_Pin) == GPIO_PIN_RESET;
-	if(estopState){ // Estop pressed at startup
-		emergencyStop(!estopState);
-		lastEstop = HAL_GetTick();
-	}
+bool estopState = HAL_GPIO_ReadPin(E_STOP_GPIO_Port, E_STOP_Pin) == GPIO_PIN_RESET;
+if(estopState){ // Estop pressed at startup
+	emergencyStop(!estopState);
+	lastEstop = HAL_GetTick();
+}
 #endif
+
+}
+
+
+/**
+ * Minimal constructor
+ * setFFBEffectsCalc must be called in constructor of derived class to finish the setup
+ */
+FFBHIDMain::FFBHIDMain(uint8_t axisCount) :
+		FFBHIDMain(axisCount,ButtonSource::all_button_sources,AnalogSource::all_analog_sources)
+{
 
 }
 
@@ -256,28 +218,32 @@ bool FFBHIDMain::getFfbActive(){
 }
 
 /**
- * Sends periodic gamepad reports of buttons and analog axes
+ * Fill button sources into report
+ * Initial shift: at which bit to start adding buttons
+ * Returns shift after all sources are added
  */
-void FFBHIDMain::send_report(){
-	if(!sourcesSem.Take(10)){
-		return;
-	}
+uint8_t FFBHIDMain::updateButtons(uint8_t initialShift){
 	// Read buttons
-	reportHID.buttons = 0; // Reset buttons
-	uint8_t shift = 0;
+	uint8_t shift = initialShift;
 	if(btns.size() != 0){
 		for(auto &btn : btns){
 			uint64_t buf = 0;
 			uint8_t amount = btn->readButtons(&buf);
 			reportHID.buttons |= buf << shift;
 			shift += amount;
+			if(shift > 63){ // Max 64 buttons are supported in total. Could be extended to 128
+				break;
+			}
 		}
 	}
+	return shift;
+}
 
-
-	// Encoder
-	//axes_manager->addAxesToReport(analogAxesReport, &count);
-
+/**
+ * Fill analog sources into report
+ * Returns amount of analog sources added. Remaining are filled with 0
+ */
+uint8_t FFBHIDMain::updateAnalog(){
 	std::vector<int32_t>* axes = axes_manager->getAxisValues();
 	uint8_t count = 0;
 	for(auto val : *axes){
@@ -293,11 +259,29 @@ void FFBHIDMain::send_report(){
 			setHidReportAxis(&reportHID,count++,val);
 		}
 	}
-	sourcesSem.Give();
 	// Fill rest
+	uint8_t actualCount = count;
 	for(;count<analogAxisCount; count++){
 		setHidReportAxis(&reportHID,count,0);
 	}
+	return actualCount;
+}
+
+/**
+ * Sends periodic gamepad reports of buttons and analog axes
+ */
+void FFBHIDMain::send_report(){
+	if(!sourcesSem.Take(10)){
+		return;
+	}
+
+	uint64_t internalButtons = 0;
+	uint8_t offset = readInternalButtons(&internalButtons);
+	reportHID.buttons = internalButtons; // Reset buttons
+	updateButtons(offset);
+	updateAnalog();
+
+	sourcesSem.Give();
 
 
 	/*
