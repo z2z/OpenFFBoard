@@ -19,6 +19,7 @@
 #include "MidiHandler.h"
 #include "thread.hpp"
 #include "SPI.h"
+#include "ExtiHandler.h"
 
 #if (USE_SPI_CRC == 0U)
 #error "CRC must be enabled!"
@@ -53,24 +54,20 @@ typedef struct{
 
 } __attribute__((packed)) midifloppy_spi_cmd;
 
-class FloppyMain_itf: public FFBoardMain,public SPIDevice {
+class FloppyMain_itf: public SPIDevice,public ExtiHandler {
 
 public:
 
 	FloppyMain_itf();
 	virtual ~FloppyMain_itf();
 
-	static const OutputPin cs1;
-	static const OutputPin cs2;
-	static const OutputPin cs3;
-
 	void beginSpiTransfer(SPIPort* port);
 	void endSpiTransfer(SPIPort* port);
 	void sendCommand(midifloppy_spi_cmd& cmd,uint8_t bus=0);
 
-	virtual void usbInit();
-
 	void resetDrive(uint8_t adr,uint8_t bus=0);
+
+	void exti(uint16_t GPIO_Pin);
 
 protected:
 	static const uint8_t ADR_BROADCAST = 0xff;
@@ -93,11 +90,20 @@ protected:
 	static const uint32_t packetlength = 6;
 	uint8_t txbuf[packetlength+1] = {0}; // 6 data bytes + crc
 
+	static std::array<OutputPin,4> cspins;
+	uint32_t drivesPerPort = 0;
+	uint32_t lastAdrTime = 0;
+
+	static const uint16_t adr0pin = FLAG_Pin;
 };
 
-class MidiFloppyMain: public FloppyMain_itf, public MidiHandler {
+class MidiFloppyMain: public FloppyMain_itf, public MidiHandler, public FFBoardMain {
 	enum class MidiFloppyMain_commands : uint32_t{
-		reset
+		reset,drivesPerPort
+	};
+
+	enum class MidiFloppyMain_modes : uint32_t{
+		direct1port,direct2port,direct4port,split4port
 	};
 
 
@@ -126,8 +132,6 @@ public:
 		return "Plays MIDI Floppymusic via SPI";
 	}
 
-	void play();
-
 private:
 	static const uint32_t channels = 16;
 
@@ -139,6 +143,8 @@ private:
 
 	const uint16_t period = 100;//71;	// Microseconds
 	float periodf = period / 1000000.0; // seconds
+
+	MidiFloppyMain_modes operationMode = MidiFloppyMain_modes::direct1port;
 
 
 };
