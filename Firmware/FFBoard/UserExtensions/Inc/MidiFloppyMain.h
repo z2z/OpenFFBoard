@@ -183,6 +183,8 @@ public:
 
 	DriveAdr chanToPortAdr(uint8_t chan, uint8_t idx);
 
+	void midiTick();
+
 
 	virtual std::string getHelpstring(){
 		return "Plays MIDI Floppymusic via SPI";
@@ -201,6 +203,9 @@ private:
 	std::vector<MidiNote> notes[channels];
 	float pitchBends[channels] = {1.0};
 	static const uint8_t drivesPerChannel = 4;
+
+	uint32_t channelUpdateFlag = 0;
+	static const uint32_t timestep = 1;
 
 
 	MidiFloppyMain_modes operationMode = MidiFloppyMain_modes::direct4port;

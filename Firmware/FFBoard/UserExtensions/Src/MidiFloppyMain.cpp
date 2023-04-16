@@ -177,8 +177,21 @@ MidiFloppyMain::~MidiFloppyMain() {
 }
 
 void MidiFloppyMain::update(){
-	//osDelay(500); // Slow down main thread
-	//play();
+	osDelay(500);
+
+
+}
+
+void MidiFloppyMain::midiTick(){
+	if(operationMode != MidiFloppyMain_modes::direct1port){
+		// Update channels
+		for(uint8_t i = 0;i<channels;i++){
+			if(channelUpdateFlag & 1 << i){
+				sendNotesForChannel(i);
+			}
+		}
+		channelUpdateFlag = 0;
+	}
 }
 
 DriveAdr MidiFloppyMain::chanToPortAdr(uint8_t chan, uint8_t idx){
@@ -307,7 +320,8 @@ void MidiFloppyMain::noteOn(uint8_t chan, uint8_t note,uint8_t velocity){
 	if(operationMode == MidiFloppyMain_modes::direct1port){
 		sendFrequency(chan,midinote.getFrequency() * pitchBends[chan],1); // Send direct
 	}else{ // Multi port splitting
-		sendNotesForChannel(chan);
+//		sendNotesForChannel(chan);
+		channelUpdateFlag |= 1 << chan;
 	}
 
 }
@@ -330,7 +344,8 @@ void MidiFloppyMain::noteOff(uint8_t chan, uint8_t note,uint8_t velocity){
 			sendFrequency(chan,note->getFrequency()*pitchBends[chan],1);
 		}
 	}else{
-		sendNotesForChannel(chan);
+//		sendNotesForChannel(chan);
+		channelUpdateFlag |= 1 << chan;
 	}
 }
 
@@ -368,16 +383,20 @@ void MidiFloppyMain::pitchBend(uint8_t chan, int16_t val){
 	float pb = std::pow(2.0f, (((float)val/8192.0f)));
 	pitchBends[chan] = pb;
 	// Must resend all notes again with new PB value
-	sendNotesForChannel(chan);
+	channelUpdateFlag |= 1 << chan;
+	//sendNotesForChannel(chan);
 
 	// Apply pitchbend to all notes on channel
 //	for(auto it = notes[chan].begin(); it!=notes[chan].end(); ++it){
 //		it->pitchbend =  pb;
 //	}
-//	MidiNote *note = &notes[chan].back();
-//	if(operationMode == MidiFloppyMain_modes::direct1port){
-//		sendFrequency(chan,note->frequency*note->pitchbend,1);
-//	}
+
+	if(operationMode == MidiFloppyMain_modes::direct1port){
+		MidiNote *note = &notes[chan].back();
+		sendFrequency(chan,note->getFrequency()*pitchBends[chan],1);
+	}else{
+		channelUpdateFlag |= 1 << chan;
+	}
 
 }
 
