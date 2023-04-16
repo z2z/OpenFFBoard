@@ -20,16 +20,52 @@
 #include "thread.hpp"
 #include "SPI.h"
 #include "ExtiHandler.h"
+#include "math.h"
 
 #if (USE_SPI_CRC == 0U)
 #error "CRC must be enabled!"
 #endif
 
-struct MidiNote{
+class MidiNote{
+private:
+	static std::array<float,128> noteToFreq;
+public:
+	MidiNote(uint8_t note,uint8_t volume,uint8_t channel):note(note),volume(volume),channel(channel){}
+	MidiNote(){};
 	uint8_t note = 0;
 	uint8_t volume = 0;
-	float frequency = 0;
-	float pitchbend = 1;
+	uint8_t channel = 0;
+	//float frequency = 0;
+	//float pitchbend = 1;
+	float getFrequency(){
+		return noteToFreq[note];
+	}
+	bool operator==(const MidiNote& other) const{
+		return(this->note == other.note && this->volume == other.volume);
+	}
+
+	static void initFreqTable(){
+		for(uint8_t i = 0;i<128;i++){
+			float f = std::pow(2, (i - 69) / 12.0) * 440.0;
+			if(i == 0){
+				f = 0;
+			}
+			noteToFreq[i] = f;
+		}
+	}
+
+};
+
+
+struct DriveAdr{
+	uint8_t adr = 0;
+	uint8_t port = 0;
+};
+
+struct NoteToSend{
+	DriveAdr target;
+	bool sent = false;
+	MidiNote note;
 };
 
 typedef struct{
@@ -95,6 +131,8 @@ protected:
 	uint32_t lastAdrTime = 0;
 
 	static const uint16_t adr0pin = FLAG_Pin;
+
+	volatile uint8_t activeBus = 0; // bit field of currently active cs pins (1 = 0, 2 = 1, 4 = 2, 8 = 3)
 };
 
 class MidiFloppyMain: public FloppyMain_itf, public MidiHandler, public FFBoardMain {
@@ -102,9 +140,23 @@ class MidiFloppyMain: public FloppyMain_itf, public MidiHandler, public FFBoardM
 		reset,drivesPerPort
 	};
 
+	/**
+	 * Direct mode: sends 1-16 channels to port 1 directly. No processing or channel splitting
+	 * Other modes:
+	 * Splits notes over multiple ports. Multiple drives per channel play depending on note velocity.
+	 * Polyphonic channels up to drives/channels possible.
+	 *
+	 * Full polyphonic:
+	 * Splits all playing notes regardless of channel into all available channels. Amount based on velocity.
+	 */
 	enum class MidiFloppyMain_modes : uint32_t{
-		direct1port,direct2port,direct4port,split4port
+		direct1port,split4port,direct4port,fullpoly
 	};
+
+//	class MidiChannel{
+//		std::vector<MidiNote> notes; // Currently playing notes on channel
+//
+//	};
 
 
 public:
@@ -127,24 +179,31 @@ public:
 	void pitchBend(uint8_t chan, int16_t val);
 
 	void sendFrequency(uint8_t adr,float freq,uint8_t bus = 0);
+	void sendFrequency(DriveAdr drive,float freq);
+
+	DriveAdr chanToPortAdr(uint8_t chan, uint8_t idx);
+
 
 	virtual std::string getHelpstring(){
 		return "Plays MIDI Floppymusic via SPI";
 	}
 
+	//MidiNote makeNote(uint8_t chan = 0, uint8_t note = 0,uint8_t velocity = 0);
+	void sendNotes(std::vector<NoteToSend>& notes);
+
+	void resetChannel(uint8_t chan);
+	void resetAll();
+	void sendNotesForChannel(uint8_t channel);
+
 private:
 	static const uint32_t channels = 16;
 
-
-	volatile bool updateflag = false;
-	float noteToFreq[128] = {0};
 	std::vector<MidiNote> notes[channels];
-	float active[channels] = {false};
+	float pitchBends[channels] = {1.0};
+	static const uint8_t drivesPerChannel = 4;
 
-	const uint16_t period = 100;//71;	// Microseconds
-	float periodf = period / 1000000.0; // seconds
 
-	MidiFloppyMain_modes operationMode = MidiFloppyMain_modes::direct1port;
+	MidiFloppyMain_modes operationMode = MidiFloppyMain_modes::direct4port;
 
 
 };
