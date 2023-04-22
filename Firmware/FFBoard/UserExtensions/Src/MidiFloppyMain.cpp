@@ -56,11 +56,12 @@ FloppyMain_itf::FloppyMain_itf() : SPIDevice{motor_spi,OutputPin(*SPI1_SS1_GPIO_
 	// MUST enable CRC in ioc file so that USE_SPI_CRC is 1 or define USE_SPI_CRC 1
 	/**SPI1 GPIO Configuration
 	    PA5     ------> SPI1_SCK
-	    PA6     ------> SPI1_MISO
+	    PA6     ------> SPI1_MISO or htim13
 	    PA7     ------> SPI1_MOSI
 	    */
+	//HAL_GPIO_DeInit(GPIOA, GPIO_PIN_7);
 	GPIO_InitTypeDef GPIO_InitStruct = {0};
-	GPIO_InitStruct.Pin = GPIO_PIN_5|GPIO_PIN_6|GPIO_PIN_7;
+	GPIO_InitStruct.Pin = GPIO_PIN_5|GPIO_PIN_7; // GPIO_PIN_6
 	GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
 	GPIO_InitStruct.Pull = GPIO_PULLDOWN;
 	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -90,6 +91,60 @@ FloppyMain_itf::FloppyMain_itf() : SPIDevice{motor_spi,OutputPin(*SPI1_SS1_GPIO_
 	motor_spi.configurePort(&this->spiConfig.peripheral);
 
 
+
+
+}
+
+void FloppyMain_itf::enableExtClkMode(bool enable){
+	// external clock mode on MISO pin w. TIM13 (84MHz base freq on F407)
+	extclkmode = enable;
+	if(enable){
+		// Set up timer pin for ext clk
+		HAL_GPIO_DeInit(GPIOA, GPIO_PIN_6);
+		GPIO_InitTypeDef GPIO_InitStruct = {0};
+		GPIO_InitStruct.Pin = GPIO_PIN_6;
+		GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+		GPIO_InitStruct.Pull = GPIO_NOPULL;
+		GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+		GPIO_InitStruct.Alternate = GPIO_AF9_TIM13;
+		HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+
+		FDDCLKTIM.Instance = TIM13;
+		FDDCLKTIM.Init.Prescaler = 0;
+		FDDCLKTIM.Init.CounterMode = TIM_COUNTERMODE_UP;
+		FDDCLKTIM.Init.Period = 839; // 100khz
+		FDDCLKTIM.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+		FDDCLKTIM.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+		HAL_TIM_Base_Init(&FDDCLKTIM);
+		HAL_TIM_PWM_Init(&FDDCLKTIM);
+
+		TIM_OC_InitTypeDef sConfigOC = {0};
+		sConfigOC.OCMode = TIM_OCMODE_PWM1;
+		sConfigOC.Pulse = FDDCLKTIM.Init.Period/2; // 50% pwm
+		sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+		sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+		sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
+
+		HAL_TIM_PWM_ConfigChannel(&FDDCLKTIM, &sConfigOC, TIM_CHANNEL_1);
+		HAL_TIM_PWM_Start(&FDDCLKTIM, TIM_CHANNEL_1);
+		// Start timer with right clock frequency
+
+		uint32_t extClkFreq = 100000; // 100khz
+		// Broadcast ext clk command
+		midifloppy_spi_cmd cmd;
+		cmd.adr = 0xff;
+		cmd.cmd = CMD_SET_EXTCLK;
+		cmd.val1_32 = extClkFreq;
+		sendCommand(cmd, 15);
+	}else{
+		HAL_TIM_PWM_Stop(&FDDCLKTIM, TIM_CHANNEL_1);
+		midifloppy_spi_cmd cmd;
+		cmd.adr = 0xff;
+		cmd.cmd = CMD_SET_EXTCLK;
+		cmd.val1_32 = 0;
+		sendCommand(cmd, 15);
+	}
 }
 
 /*
@@ -128,7 +183,7 @@ void FloppyMain_itf::endSpiTransfer(SPIPort* port){
  * Always use this function to send data to the drives
  */
 void FloppyMain_itf::sendCommand(midifloppy_spi_cmd& cmd,uint8_t bus){
-	this->spiPort.takeSemaphore(); // Take semaphore before writing into the DMA buffer
+ 	this->spiPort.takeSemaphore(); // Take semaphore before writing into the DMA buffer
 	activeBus = bus;
 
 	memcpy(txbuf,&cmd,packetlength);
@@ -168,6 +223,7 @@ MidiFloppyMain::MidiFloppyMain() {
 
 	CommandHandler::registerCommands();
 	registerCommand("drives", MidiFloppyMain_commands::drivesPerPort, "Drives per port",CMDFLAG_GET | CMDFLAG_SET);
+	registerCommand("extclk", MidiFloppyMain_commands::extclk, "Master clock mode",CMDFLAG_GET | CMDFLAG_SET);
 //	resetAll();
 
 }
@@ -178,8 +234,14 @@ MidiFloppyMain::~MidiFloppyMain() {
 
 void MidiFloppyMain::update(){
 	osDelay(500);
+	if(!initialized)
+		initialize();
 
+}
 
+void MidiFloppyMain::initialize(){
+	enableExtClkMode(false);
+	initialized = true;
 }
 
 void MidiFloppyMain::midiTick(){
@@ -406,6 +468,8 @@ CommandStatus MidiFloppyMain::command(const ParsedCommand& cmd,std::vector<Comma
 
 	case MidiFloppyMain_commands::drivesPerPort:
 		return handleGetSet(cmd, replies, drivesPerPort);
+	case MidiFloppyMain_commands::extclk:
+		return handleGetSetFunc(cmd, replies, extclkmode, &FloppyMain_itf::enableExtClkMode, this);
 
 	default:
 		result = CommandStatus::NOT_FOUND;

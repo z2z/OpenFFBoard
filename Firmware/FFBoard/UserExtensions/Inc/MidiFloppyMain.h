@@ -26,6 +26,9 @@
 #error "CRC must be enabled!"
 #endif
 
+extern TIM_HandleTypeDef htim13;
+#define FDDCLKTIM htim13
+
 class MidiNote{
 private:
 	static std::array<float,128> noteToFreq;
@@ -105,6 +108,9 @@ public:
 
 	void exti(uint16_t GPIO_Pin);
 
+	void enableExtClkMode(bool enable);
+
+
 protected:
 	static const uint8_t ADR_BROADCAST = 0xff;
 	static const uint8_t CMDMASK_READ = 0x80;
@@ -118,6 +124,7 @@ protected:
 	static const uint8_t CMD_SETENABLE = 0x03;
 	static const uint8_t CMD_RESET = 0x10;
 	static const uint8_t CMD_SET_STEPS = 0x11;
+	static const uint8_t CMD_SET_EXTCLK = 0x12;
 
 	static const uint8_t CMD_DATAMODE = 0x20;
 	static const uint8_t CMD_DATASEEK = 0x21; // Seek to track, head and sector
@@ -133,11 +140,13 @@ protected:
 	static const uint16_t adr0pin = FLAG_Pin;
 
 	volatile uint8_t activeBus = 0; // bit field of currently active cs pins (1 = 0, 2 = 1, 4 = 2, 8 = 3)
+
+	bool extclkmode = false;
 };
 
 class MidiFloppyMain: public FloppyMain_itf, public MidiHandler, public FFBoardMain {
 	enum class MidiFloppyMain_commands : uint32_t{
-		reset,drivesPerPort
+		reset,drivesPerPort,extclk
 	};
 
 	/**
@@ -172,6 +181,8 @@ public:
 	CommandStatus command(const ParsedCommand& cmd,std::vector<CommandReply>& replies);
 	void usbInit();
 	void update();
+
+	void initialize();
 
 	void noteOn(uint8_t chan, uint8_t note,uint8_t velocity);
 	void noteOff(uint8_t chan, uint8_t note,uint8_t velocity);
@@ -209,6 +220,7 @@ private:
 
 
 	MidiFloppyMain_modes operationMode = MidiFloppyMain_modes::direct4port;
+	bool initialized = false;
 
 
 };
