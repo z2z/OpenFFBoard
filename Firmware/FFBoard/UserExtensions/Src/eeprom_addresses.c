@@ -1,12 +1,12 @@
 /*		
- * eeprom_addresses.c
- *
- *  Created on: 24.01.2020
- *  Author: Yannick
- *
- *	/!\ Generated from the file memory_map.csv
-   / ! \ DO NOT EDIT THIS DIRECTLY !!!
- */
+ * eeprom_addresses.c		
+ *		
+ *  Created on: 24.01.2020		
+ *  Author: Yannick		
+ *		
+ *	/!\ Generated from the file memory_map.csv 
+   / ! \ DO NOT EDIT THIS DIRECTLY !!!	
+ */		
 		
 #include "eeprom_addresses.h"		
 
@@ -190,11 +190,13 @@ const uint16_t VirtAddVarTab[NB_OF_VAR] =
 	ADR_ADS111X_MAX_2,
 	ADR_ADS111X_MIN_3,
 	ADR_ADS111X_MAX_3,
+// Floppy midi
+	ADR_MIDIFLOPPY_CONF1,
 };
 
 /**		
- * Variables to be included in a flash dump
- */
+ * Variables to be included in a flash dump		
+ */		
 const uint16_t exportableFlashAddresses[NB_EXPORTABLE_ADR] =		
 {
 // System variables
@@ -370,4 +372,6 @@ const uint16_t exportableFlashAddresses[NB_EXPORTABLE_ADR] =
 	ADR_ADS111X_MAX_2,
 	ADR_ADS111X_MIN_3,
 	ADR_ADS111X_MAX_3,
+// Floppy midi
+	ADR_MIDIFLOPPY_CONF1,
 };

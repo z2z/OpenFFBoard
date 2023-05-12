@@ -224,6 +224,7 @@ MidiFloppyMain::MidiFloppyMain() {
 	CommandHandler::registerCommands();
 	registerCommand("drives", MidiFloppyMain_commands::drivesPerPort, "Drives per port",CMDFLAG_GET | CMDFLAG_SET);
 	registerCommand("extclk", MidiFloppyMain_commands::extclk, "Master clock mode",CMDFLAG_GET | CMDFLAG_SET);
+	registerCommand("mode", MidiFloppyMain_commands::mode, "Master clock mode",CMDFLAG_GET | CMDFLAG_SET);
 //	resetAll();
 
 }
@@ -441,6 +442,21 @@ void MidiFloppyMain::controlChange(uint8_t chan, uint8_t c, uint8_t val){
 
 	}
 }
+
+void MidiFloppyMain::saveFlash(){
+	uint16_t val = (uint16_t)this->operationMode & 0x7;
+	val |= extclkmode ? 0x8 : 0;
+	Flash_Write(ADR_MIDIFLOPPY_CONF1, val);
+}
+
+void MidiFloppyMain::restoreFlash(){
+	uint16_t val;
+	if(Flash_Read(ADR_MIDIFLOPPY_CONF1, &val)){
+		this->operationMode = (MidiFloppyMain_modes) (val & 0x7); // 3 bit
+		this->enableExtClkMode(val & 0x8);
+	}
+}
+
 void MidiFloppyMain::pitchBend(uint8_t chan, int16_t val){
 	float pb = std::pow(2.0f, (((float)val/8192.0f)));
 	pitchBends[chan] = pb;
@@ -470,6 +486,8 @@ CommandStatus MidiFloppyMain::command(const ParsedCommand& cmd,std::vector<Comma
 		return handleGetSet(cmd, replies, drivesPerPort);
 	case MidiFloppyMain_commands::extclk:
 		return handleGetSetFunc(cmd, replies, extclkmode, &FloppyMain_itf::enableExtClkMode, this);
+	case MidiFloppyMain_commands::mode:
+		return handleGetSet(cmd, replies, operationMode);
 
 	default:
 		result = CommandStatus::NOT_FOUND;

@@ -1,23 +1,23 @@
 /*		
- * eeprom_addresses.h
- *
- *  Created on: 24.01.2020
- *  Author: Yannick
- *
- *	/!\ Generated from the file memory_map.csv
-   / ! \ DO NOT EDIT THIS DIRECTLY !!!
- */
+ * eeprom_addresses.h		
+ *		
+ *  Created on: 24.01.2020		
+ *  Author: Yannick		
+ *		
+ *	/!\ Generated from the file memory_map.csv 
+   / ! \ DO NOT EDIT THIS DIRECTLY !!!	
+ */			
 		
 #ifndef EEPROM_ADDRESSES_H_
 #define EEPROM_ADDRESSES_H_
 
 #include "main.h"
 // Change this to the amount of currently registered variables
-#define NB_OF_VAR 147
+#define NB_OF_VAR 148
 extern const uint16_t VirtAddVarTab[NB_OF_VAR];
 
 // Amount of variables in exportable list
-#define NB_EXPORTABLE_ADR 132
+#define NB_EXPORTABLE_ADR 133
 extern const uint16_t exportableFlashAddresses[NB_EXPORTABLE_ADR];
 
 
@@ -208,4 +208,6 @@ uint16_t EE_ReadVariable(uint16_t VirtAddress, uint16_t* Data) will return 1 if 
 #define ADR_ADS111X_MAX_2 0x515
 #define ADR_ADS111X_MIN_3 0x516
 #define ADR_ADS111X_MAX_3 0x517
+// Floppy midi
+#define ADR_MIDIFLOPPY_CONF1 0xC01
 #endif /* EEPROM_ADDRESSES_H_ */

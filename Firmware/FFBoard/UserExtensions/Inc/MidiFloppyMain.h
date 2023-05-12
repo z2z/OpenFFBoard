@@ -144,9 +144,9 @@ protected:
 	bool extclkmode = false;
 };
 
-class MidiFloppyMain: public FloppyMain_itf, public MidiHandler, public FFBoardMain {
+class MidiFloppyMain: public FloppyMain_itf, public MidiHandler, public FFBoardMain, public PersistentStorage {
 	enum class MidiFloppyMain_commands : uint32_t{
-		reset,drivesPerPort,extclk
+		reset,drivesPerPort,extclk,mode
 	};
 
 	/**
@@ -183,6 +183,8 @@ public:
 	void update();
 
 	void initialize();
+	void saveFlash(); 		// Write to flash here
+	void restoreFlash();	// Load from flash
 
 	void noteOn(uint8_t chan, uint8_t note,uint8_t velocity);
 	void noteOff(uint8_t chan, uint8_t note,uint8_t velocity);
@@ -224,84 +226,6 @@ private:
 
 
 };
-/*
-// From Adafruit_Floppy project
-#define GW_FIRMVER_MAJOR 1
-#define GW_FIRMVER_MINOR 0
-#define GW_MAXCMD      21
-#define GW_HW_MODEL    8
-#define GW_HW_SUBMODEL 0
-#define GW_USB_SPEED   0  // Full Speed
 
-#define GW_CMD_GETINFO    0
-#define GW_CMD_GETINFO_FIRMWARE 0
-#define GW_CMD_GETINFO_BANDWIDTH 1
-#define GW_CMD_SEEK       2
-#define GW_CMD_HEAD       3
-#define GW_CMD_SETPARAMS  4
-#define GW_CMD_GETPARAMS  5
-#define GW_CMD_GETPARAMS_DELAYS 0
-#define GW_CMD_MOTOR      6
-#define GW_CMD_READFLUX   7
-#define GW_CMD_WRITEFLUX   8
-#define GW_CMD_GETFLUXSTATUS  9
-#define GW_CMD_SELECT    12
-#define GW_CMD_DESELECT  13
-#define GW_CMD_SETBUSTYPE 14
-#define GW_CMD_SETBUSTYPE_IBM 1
-#define GW_CMD_SETBUSTYPE_SHUGART 2
-#define GW_CMD_SETBUSTYPE_APPLE2 3
-#define GW_CMD_SETPIN    15
-#define GW_CMD_SETPIN_DENSITY 2
-#define GW_CMD_RESET     16
-#define GW_CMD_SOURCEBYTES 18
-#define GW_CMD_SINKBYTES 19
-#define GW_CMD_GETPIN 20
-#define GW_CMD_GETPIN_TRACK0 26
-#define GW_ACK_OK (byte)0
-#define GW_ACK_BADCMD 1
-#define GW_ACK_NOINDEX 2
-#define GW_ACK_NOTRACK0 3
-#define GW_ACK_WRPROT 6
-#define GW_ACK_NOUNIT 7
-#define GW_ACK_BADPIN 10
-
-class GWFloppyMain: public FloppyMain_itf, public MidiHandler {
-	enum class GWFloppyMain_commands : uint32_t{
-		reset,readTrack,seek,setdrive
-	};
-
-
-public:
-	GWFloppyMain();
-	virtual ~GWFloppyMain();
-
-	TIM_HandleTypeDef* timer_update;
-
-	static ClassIdentifier info;
-	const ClassIdentifier getInfo();
-
-	CommandStatus command(const ParsedCommand& cmd,std::vector<CommandReply>& replies);
-	void usbInit();
-	void update();
-
-	virtual void cdcRcv(char* Buf, uint32_t *Len);
-
-	virtual std::string getHelpstring(){
-		return "Greaseweazle to FDD SPI interface";
-	}
-
-
-private:
-	std::array<char,32> gwCmdBuf;
-	std::array<char,128> reply_buffer;
-
-	uint32_t bandwidth_timer;
-	float bytes_per_sec;
-	uint32_t transfered_bytes;
-	uint32_t captured_pulses;
-	uint8_t curAdr = 0;
-};
-*/
 #endif /* MidiMAIN_H_ */
 #endif
