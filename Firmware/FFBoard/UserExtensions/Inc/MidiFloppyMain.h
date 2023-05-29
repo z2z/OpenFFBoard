@@ -146,7 +146,7 @@ protected:
 
 class MidiFloppyMain: public FloppyMain_itf, public MidiHandler, public FFBoardMain, public PersistentStorage {
 	enum class MidiFloppyMain_commands : uint32_t{
-		reset,drivesPerPort,extclk,mode
+		reset,drivesPerPort,extclk,mode,enable
 	};
 
 	/**
@@ -194,7 +194,10 @@ public:
 	void sendFrequency(uint8_t adr,float freq,uint8_t bus = 0);
 	void sendFrequency(DriveAdr drive,float freq);
 
+	void enableDrive(DriveAdr adr,bool drive, bool motor);
+
 	DriveAdr chanToPortAdr(uint8_t chan, uint8_t idx);
+	DriveAdr chanToPortAdr(uint16_t drive);
 
 	void midiTick();
 

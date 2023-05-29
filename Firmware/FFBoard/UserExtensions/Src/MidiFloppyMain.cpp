@@ -225,6 +225,7 @@ MidiFloppyMain::MidiFloppyMain() {
 	registerCommand("drives", MidiFloppyMain_commands::drivesPerPort, "Drives per port",CMDFLAG_GET | CMDFLAG_SET);
 	registerCommand("extclk", MidiFloppyMain_commands::extclk, "Master clock mode",CMDFLAG_GET | CMDFLAG_SET);
 	registerCommand("mode", MidiFloppyMain_commands::mode, "Master clock mode",CMDFLAG_GET | CMDFLAG_SET);
+	registerCommand("enable", MidiFloppyMain_commands::enable, "Set drive enable pins of chan",CMDFLAG_SETADR);
 //	resetAll();
 
 }
@@ -255,6 +256,10 @@ void MidiFloppyMain::midiTick(){
 		}
 		channelUpdateFlag = 0;
 	}
+}
+
+DriveAdr MidiFloppyMain::chanToPortAdr(uint16_t drive){
+	return chanToPortAdr(drive % drivesPerPort,drive / drivesPerPort);
 }
 
 DriveAdr MidiFloppyMain::chanToPortAdr(uint8_t chan, uint8_t idx){
@@ -478,6 +483,19 @@ void MidiFloppyMain::pitchBend(uint8_t chan, int16_t val){
 
 }
 
+
+/**
+ * Enables or disables a drive
+ */
+void MidiFloppyMain::enableDrive(DriveAdr adr,bool drive, bool motor){
+	midifloppy_spi_cmd cmd;
+	cmd.adr = adr.adr;
+	cmd.cmd = CMD_SETENABLE;
+	cmd.val1 = drive;
+	cmd.val2 = motor;
+	sendCommand(cmd, adr.port);
+}
+
 CommandStatus MidiFloppyMain::command(const ParsedCommand& cmd,std::vector<CommandReply>& replies){
 	CommandStatus result = CommandStatus::OK;
 	switch(static_cast<MidiFloppyMain_commands>(cmd.cmdId)){
@@ -487,8 +505,17 @@ CommandStatus MidiFloppyMain::command(const ParsedCommand& cmd,std::vector<Comma
 	case MidiFloppyMain_commands::extclk:
 		return handleGetSetFunc(cmd, replies, extclkmode, &FloppyMain_itf::enableExtClkMode, this);
 	case MidiFloppyMain_commands::mode:
-		return handleGetSet(cmd, replies, operationMode);
-
+		return handleGetSet(cmd, replies, (uint32_t&)operationMode);
+	case MidiFloppyMain_commands::enable:
+	{
+		if(cmd.type==CMDtype::setat){
+			if(cmd.adr == 255){
+				enableDrive({255,0xf}, cmd.val & 1, cmd.val & 2);
+			}
+			enableDrive(chanToPortAdr(cmd.adr), cmd.val & 1, cmd.val & 2);
+		}
+		break;
+	}
 	default:
 		result = CommandStatus::NOT_FOUND;
 		break;
