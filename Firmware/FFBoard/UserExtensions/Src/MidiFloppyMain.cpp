@@ -64,7 +64,7 @@ FloppyMain_itf::FloppyMain_itf() : SPIDevice{motor_spi,OutputPin(*SPI1_SS1_GPIO_
 	GPIO_InitStruct.Pin = GPIO_PIN_5|GPIO_PIN_7; // GPIO_PIN_6
 	GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
 	GPIO_InitStruct.Pull = GPIO_PULLDOWN;
-	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
 	GPIO_InitStruct.Alternate = GPIO_AF5_SPI1;
 	HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
@@ -93,6 +93,22 @@ FloppyMain_itf::FloppyMain_itf() : SPIDevice{motor_spi,OutputPin(*SPI1_SS1_GPIO_
 
 
 
+}
+
+void FloppyMain_itf::setSpiSpeed(uint8_t speed){
+	speed = clip<uint8_t>(speed, 0, 7);
+	switch(speed){
+	case 0:	this->spiConfig.peripheral.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2; break;
+	case 1:	this->spiConfig.peripheral.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_4; break;
+	case 2:	this->spiConfig.peripheral.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_8; break;
+	case 3:	this->spiConfig.peripheral.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_16; break;
+	case 4:	this->spiConfig.peripheral.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_32; break;
+	case 5:	this->spiConfig.peripheral.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_64; break;
+	case 6:	this->spiConfig.peripheral.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_128; break;
+	case 7:	this->spiConfig.peripheral.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_256; break;
+	}
+	spispeed = speed;
+	motor_spi.configurePort(&this->spiConfig.peripheral);
 }
 
 void FloppyMain_itf::enableExtClkMode(bool enable){
@@ -220,12 +236,15 @@ FloppyMain_itf::~FloppyMain_itf() {
 MidiFloppyMain::MidiFloppyMain() {
 	// Generate notes
 	MidiNote::initFreqTable();
+	restoreFlash();
 
 	CommandHandler::registerCommands();
 	registerCommand("drives", MidiFloppyMain_commands::drivesPerPort, "Drives per port",CMDFLAG_GET | CMDFLAG_SET);
 	registerCommand("extclk", MidiFloppyMain_commands::extclk, "Master clock mode",CMDFLAG_GET | CMDFLAG_SET);
-	registerCommand("mode", MidiFloppyMain_commands::mode, "Master clock mode",CMDFLAG_GET | CMDFLAG_SET);
+	registerCommand("mode", MidiFloppyMain_commands::mode, "Channel mode (d1p split4p d4p)",CMDFLAG_GET | CMDFLAG_SET | CMDFLAG_INFOSTRING);
 	registerCommand("enable", MidiFloppyMain_commands::enable, "Set drive enable pins of chan",CMDFLAG_SETADR);
+	registerCommand("spispeed", MidiFloppyMain_commands::spispeed, "SPI prescaler (0-7)",CMDFLAG_GET | CMDFLAG_SET);
+	registerCommand("reset", MidiFloppyMain_commands::reset, "Reset drives",CMDFLAG_GET);
 //	resetAll();
 
 }
@@ -235,7 +254,7 @@ MidiFloppyMain::~MidiFloppyMain() {
 }
 
 void MidiFloppyMain::update(){
-	osDelay(500);
+	osDelay(100);
 	if(!initialized)
 		initialize();
 
@@ -276,9 +295,8 @@ DriveAdr MidiFloppyMain::chanToPortAdr(uint8_t chan, uint8_t idx){
 		case MidiFloppyMain_modes::split4port:
 		{
 			uint16_t channelsPerBlock = channels / 2;
-
-			drive.adr = (idx * channelsPerBlock + chan) % drivesPerPort; // (2 * 8 + 3) % 16. 2 idx per port in first 2 ports
 			drive.port = 1 << ((idx / 2) + (2 * ( chan / channelsPerBlock))); // First 8 channels first 2 ports
+			drive.adr = (idx * channelsPerBlock + (chan % channelsPerBlock)) % drivesPerPort; // (2 * 8 + 3) % 16. 2 idx per port in first 2 ports
 			break;
 		}
 		case MidiFloppyMain_modes::direct4port:
@@ -451,6 +469,7 @@ void MidiFloppyMain::controlChange(uint8_t chan, uint8_t c, uint8_t val){
 void MidiFloppyMain::saveFlash(){
 	uint16_t val = (uint16_t)this->operationMode & 0x7;
 	val |= extclkmode ? 0x8 : 0;
+	val |= (spispeed & 0x7) << 4;
 	Flash_Write(ADR_MIDIFLOPPY_CONF1, val);
 }
 
@@ -459,6 +478,7 @@ void MidiFloppyMain::restoreFlash(){
 	if(Flash_Read(ADR_MIDIFLOPPY_CONF1, &val)){
 		this->operationMode = (MidiFloppyMain_modes) (val & 0x7); // 3 bit
 		this->enableExtClkMode(val & 0x8);
+		setSpiSpeed((val >> 4) & 0x7); // 3 bit
 	}
 }
 
@@ -505,7 +525,12 @@ CommandStatus MidiFloppyMain::command(const ParsedCommand& cmd,std::vector<Comma
 	case MidiFloppyMain_commands::extclk:
 		return handleGetSetFunc(cmd, replies, extclkmode, &FloppyMain_itf::enableExtClkMode, this);
 	case MidiFloppyMain_commands::mode:
-		return handleGetSet(cmd, replies, (uint32_t&)operationMode);
+		if(cmd.type == CMDtype::info){
+			replies.emplace_back("0:direct1port\n1:split4port\n2:direct4port");
+		}else{
+			return handleGetSet(cmd, replies, (uint32_t&)operationMode);
+		}
+		break;
 	case MidiFloppyMain_commands::enable:
 	{
 		if(cmd.type==CMDtype::setat){
@@ -516,6 +541,18 @@ CommandStatus MidiFloppyMain::command(const ParsedCommand& cmd,std::vector<Comma
 		}
 		break;
 	}
+	case MidiFloppyMain_commands::spispeed:
+		if(cmd.type == CMDtype::get){
+			replies.emplace_back(this->spispeed);
+		}else if(cmd.type == CMDtype::set){
+			setSpiSpeed(cmd.val);
+		}
+		break;
+	case MidiFloppyMain_commands::reset:
+		if(cmd.type == CMDtype::get){
+			resetAll();
+			resetDrive(255, 255); // Reset all drives
+		}
 	default:
 		result = CommandStatus::NOT_FOUND;
 		break;

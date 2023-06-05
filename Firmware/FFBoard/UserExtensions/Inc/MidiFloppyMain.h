@@ -109,6 +109,7 @@ public:
 	void exti(uint16_t GPIO_Pin);
 
 	void enableExtClkMode(bool enable);
+	void setSpiSpeed(uint8_t speed);
 
 
 protected:
@@ -142,11 +143,12 @@ protected:
 	volatile uint8_t activeBus = 0; // bit field of currently active cs pins (1 = 0, 2 = 1, 4 = 2, 8 = 3)
 
 	bool extclkmode = false;
+	uint8_t spispeed = 3;
 };
 
 class MidiFloppyMain: public FloppyMain_itf, public MidiHandler, public FFBoardMain, public PersistentStorage {
 	enum class MidiFloppyMain_commands : uint32_t{
-		reset,drivesPerPort,extclk,mode,enable
+		reset,drivesPerPort,extclk,mode,enable,spispeed
 	};
 
 	/**
