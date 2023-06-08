@@ -148,7 +148,7 @@ protected:
 
 class MidiFloppyMain: public FloppyMain_itf, public MidiHandler, public FFBoardMain, public PersistentStorage {
 	enum class MidiFloppyMain_commands : uint32_t{
-		reset,drivesPerPort,extclk,mode,enable,spispeed
+		reset,drivesPerPort,extclk,mode,enable,spispeed,enableidx
 	};
 
 	/**

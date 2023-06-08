@@ -71,6 +71,7 @@ FloppyMain_itf::FloppyMain_itf() : SPIDevice{motor_spi,OutputPin(*SPI1_SS1_GPIO_
 	// Configure CS pins
 	for(auto& pin : cspins){
 		pin.configureOutput(GPIO_MODE_OUTPUT_PP, false, GPIO_SPEED_FREQ_LOW);
+		pin.set();
 	}
 
 	// Enable SPI crc half duplex mode
@@ -243,6 +244,7 @@ MidiFloppyMain::MidiFloppyMain() {
 	registerCommand("extclk", MidiFloppyMain_commands::extclk, "Master clock mode",CMDFLAG_GET | CMDFLAG_SET);
 	registerCommand("mode", MidiFloppyMain_commands::mode, "Channel mode (d1p split4p d4p)",CMDFLAG_GET | CMDFLAG_SET | CMDFLAG_INFOSTRING);
 	registerCommand("enable", MidiFloppyMain_commands::enable, "Set drive enable pins of chan",CMDFLAG_SETADR);
+	registerCommand("enableidx", MidiFloppyMain_commands::enableidx, "Set drive enable pins of index",CMDFLAG_SETADR);
 	registerCommand("spispeed", MidiFloppyMain_commands::spispeed, "SPI prescaler (0-7)",CMDFLAG_GET | CMDFLAG_SET);
 	registerCommand("reset", MidiFloppyMain_commands::reset, "Reset drives",CMDFLAG_GET);
 //	resetAll();
@@ -261,7 +263,7 @@ void MidiFloppyMain::update(){
 }
 
 void MidiFloppyMain::initialize(){
-	enableExtClkMode(false);
+	this->enableExtClkMode(extclkmode);
 	initialized = true;
 }
 
@@ -477,7 +479,7 @@ void MidiFloppyMain::restoreFlash(){
 	uint16_t val;
 	if(Flash_Read(ADR_MIDIFLOPPY_CONF1, &val)){
 		this->operationMode = (MidiFloppyMain_modes) (val & 0x7); // 3 bit
-		this->enableExtClkMode(val & 0x8);
+		extclkmode = val & 0x8;
 		setSpiSpeed((val >> 4) & 0x7); // 3 bit
 	}
 }
@@ -538,6 +540,16 @@ CommandStatus MidiFloppyMain::command(const ParsedCommand& cmd,std::vector<Comma
 				enableDrive({255,0xf}, cmd.val & 1, cmd.val & 2);
 			}
 			enableDrive(chanToPortAdr(cmd.adr), cmd.val & 1, cmd.val & 2);
+		}
+		break;
+	}
+	case MidiFloppyMain_commands::enableidx:
+	{
+		if(cmd.type==CMDtype::setat){
+			if(cmd.adr == 255){
+				enableDrive({255,0xf}, cmd.val & 1, cmd.val & 2);
+			}
+			enableDrive({uint8_t(cmd.adr % drivesPerPort), uint8_t(1 << (cmd.adr / drivesPerPort))}, cmd.val & 1, cmd.val & 2);
 		}
 		break;
 	}
