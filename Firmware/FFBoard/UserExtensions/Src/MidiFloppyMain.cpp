@@ -171,7 +171,7 @@ void FloppyMain_itf::enableExtClkMode(bool enable){
 void FloppyMain_itf::beginSpiTransfer(SPIPort* port){
 	//assertChipSelect();
 	for(uint8_t i = 0; i < cspins.size(); i++){
-		if(activeBus & (1 << i))
+		if((activeBus & (1 << i)) & enabledPorts)
 			cspins[i].reset();
 	}
 	uint32_t cnt = 50;
@@ -247,6 +247,7 @@ MidiFloppyMain::MidiFloppyMain() {
 	registerCommand("enableidx", MidiFloppyMain_commands::enableidx, "Set drive enable pins of index",CMDFLAG_SETADR);
 	registerCommand("spispeed", MidiFloppyMain_commands::spispeed, "SPI prescaler (0-7)",CMDFLAG_GET | CMDFLAG_SET);
 	registerCommand("reset", MidiFloppyMain_commands::reset, "Reset drives",CMDFLAG_GET);
+	registerCommand("enabledports", MidiFloppyMain_commands::enabledPorts, "Enabled ports",CMDFLAG_GET | CMDFLAG_SET);
 //	resetAll();
 
 }
@@ -565,6 +566,8 @@ CommandStatus MidiFloppyMain::command(const ParsedCommand& cmd,std::vector<Comma
 			resetAll();
 			resetDrive(255, 255); // Reset all drives
 		}
+	case MidiFloppyMain_commands::enabledPorts:
+	return handleGetSet(cmd, replies, this->enabledPorts);
 	default:
 		result = CommandStatus::NOT_FOUND;
 		break;

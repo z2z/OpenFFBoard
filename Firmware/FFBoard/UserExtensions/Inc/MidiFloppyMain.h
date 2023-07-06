@@ -144,11 +144,13 @@ protected:
 
 	bool extclkmode = false;
 	uint8_t spispeed = 3;
+
+	uint8_t enabledPorts = 0xff;
 };
 
 class MidiFloppyMain: public FloppyMain_itf, public MidiHandler, public FFBoardMain, public PersistentStorage {
 	enum class MidiFloppyMain_commands : uint32_t{
-		reset,drivesPerPort,extclk,mode,enable,spispeed,enableidx
+		reset,drivesPerPort,extclk,mode,enable,spispeed,enableidx,enabledPorts
 	};
 
 	/**
