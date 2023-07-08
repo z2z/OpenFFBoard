@@ -150,7 +150,7 @@ protected:
 
 class MidiFloppyMain: public FloppyMain_itf, public MidiHandler, public FFBoardMain, public PersistentStorage {
 	enum class MidiFloppyMain_commands : uint32_t{
-		reset,drivesPerPort,extclk,mode,enable,spispeed,enableidx,enabledPorts
+		reset,drivesPerPort,extclk,mode,enable,spispeed,enableidx,enabledPorts,ignoreChannel
 	};
 
 	/**
@@ -163,13 +163,29 @@ class MidiFloppyMain: public FloppyMain_itf, public MidiHandler, public FFBoardM
 	 * Splits all playing notes regardless of channel into all available channels. Amount based on velocity.
 	 */
 	enum class MidiFloppyMain_modes : uint32_t{
-		direct1port,split4port,direct4port,fullpoly
+		direct1port,split4port,direct4port
 	};
 
 //	class MidiChannel{
 //		std::vector<MidiNote> notes; // Currently playing notes on channel
 //
 //	};
+private:
+	static const uint32_t channels = 16;
+
+	std::array<std::vector<MidiNote>,channels> notes;
+	float pitchBends[channels] = {1.0};
+	static const uint8_t drivesPerChannel = 4;
+
+	uint32_t channelUpdateFlag = 0;
+	static const uint32_t timestep = 1;
+
+
+	MidiFloppyMain_modes operationMode = MidiFloppyMain_modes::direct4port;
+	bool initialized = false;
+
+	bool singleChannelInput = false; // Single channel input mode
+	std::array<std::vector<MidiNote>,channels> mergedNotes;
 
 
 public:
@@ -203,6 +219,8 @@ public:
 	DriveAdr chanToPortAdr(uint8_t chan, uint8_t idx);
 	DriveAdr chanToPortAdr(uint16_t drive);
 
+	void mergeDistributeChannels(std::array<std::vector<MidiNote>,channels> *mergedNotes);
+
 	void midiTick();
 
 
@@ -215,21 +233,8 @@ public:
 
 	void resetChannel(uint8_t chan);
 	void resetAll();
-	void sendNotesForChannel(uint8_t channel);
+	void sendNotesForChannel(uint8_t channel,std::vector<MidiNote>& currentNotes);
 
-private:
-	static const uint32_t channels = 16;
-
-	std::vector<MidiNote> notes[channels];
-	float pitchBends[channels] = {1.0};
-	static const uint8_t drivesPerChannel = 4;
-
-	uint32_t channelUpdateFlag = 0;
-	static const uint32_t timestep = 1;
-
-
-	MidiFloppyMain_modes operationMode = MidiFloppyMain_modes::direct4port;
-	bool initialized = false;
 
 
 };

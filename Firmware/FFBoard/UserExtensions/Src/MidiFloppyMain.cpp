@@ -248,6 +248,7 @@ MidiFloppyMain::MidiFloppyMain() {
 	registerCommand("spispeed", MidiFloppyMain_commands::spispeed, "SPI prescaler (0-7)",CMDFLAG_GET | CMDFLAG_SET);
 	registerCommand("reset", MidiFloppyMain_commands::reset, "Reset drives",CMDFLAG_GET);
 	registerCommand("enabledports", MidiFloppyMain_commands::enabledPorts, "Enabled ports",CMDFLAG_GET | CMDFLAG_SET);
+	registerCommand("ignorechan", MidiFloppyMain_commands::ignoreChannel, "Singlechannel input mode",CMDFLAG_GET | CMDFLAG_SET);
 //	resetAll();
 
 }
@@ -269,14 +270,50 @@ void MidiFloppyMain::initialize(){
 }
 
 void MidiFloppyMain::midiTick(){
+	std::array<std::vector<MidiNote>,channels>* curNotes = &this->notes;
+	if(singleChannelInput && channelUpdateFlag){
+		for(auto& c : mergedNotes){
+			c.clear();
+		}
+		// Something changed and all channels should be merged
+		mergeDistributeChannels(&mergedNotes);
+		curNotes = &mergedNotes;
+		channelUpdateFlag = 0xffff; // Assume all channels are changed
+
+//		for(uint8_t i = 0;i<channels;i++){
+//			sendNotesForChannel(i,mergedNotes[i]);
+//		}
+//		channelUpdateFlag = 0;
+	}
 	if(operationMode != MidiFloppyMain_modes::direct1port){
 		// Update channels
 		for(uint8_t i = 0;i<channels;i++){
 			if(channelUpdateFlag & 1 << i){
-				sendNotesForChannel(i);
+				sendNotesForChannel(i,curNotes->at(i));
 			}
 		}
 		channelUpdateFlag = 0;
+	}
+}
+
+/**
+ * Redistributes all playing notes into all channels ignoring its original channel
+ */
+void MidiFloppyMain::mergeDistributeChannels(std::array<std::vector<MidiNote>,channels> *mergedNotes){
+	std::vector<MidiNote> tempNotes;
+	for(auto& chan : notes){
+		tempNotes.insert(tempNotes.end(),chan.begin(),chan.end()); // Copy all active notes of channel
+	}
+	// Insert notes
+	int32_t activeNotes = tempNotes.size();
+	int32_t playedNotes = 0;
+	// Add playing notes back into channels
+	while(activeNotes - playedNotes > 0){
+		for(uint8_t chan = 0;chan < this->channels; chan++){
+			MidiNote& note = tempNotes[(playedNotes++ % activeNotes)];
+			note.channel = chan;
+			mergedNotes->at(chan).push_back(note);
+		}
 	}
 }
 
@@ -359,8 +396,8 @@ void MidiFloppyMain::sendNotes(std::vector<NoteToSend>& notes){
  * Sends notes for the channel that are currently playing.
  * Useful for updating notes when pitch has changed
  */
-void MidiFloppyMain::sendNotesForChannel(uint8_t channel){
-	std::vector<MidiNote>& currentNotes = this->notes[channel];
+void MidiFloppyMain::sendNotesForChannel(uint8_t channel,std::vector<MidiNote>& currentNotes){
+//	std::vector<MidiNote>& currentNotes = this->notes[channel];
 //	uint8_t amount = currentNotes.size();//std::min<uint8_t>(currentNotes.size(), drivesPerChannel);
 
 	std::vector<NoteToSend> newNotes;
@@ -417,7 +454,6 @@ void MidiFloppyMain::noteOn(uint8_t chan, uint8_t note,uint8_t velocity){
 
 void MidiFloppyMain::noteOff(uint8_t chan, uint8_t note,uint8_t velocity){
 
-
 	for(auto it = notes[chan].begin(); it!=notes[chan].end(); ++it){
 		if(it->note == note){
 			notes[chan].erase(it);
@@ -450,6 +486,7 @@ void MidiFloppyMain::resetAll(){
 void MidiFloppyMain::resetChannel(uint8_t chan){
 	notes[chan].clear();
 	pitchBends[chan] = 1;
+	mergedNotes[chan].clear();
 //	sendFrequency(chan, 0, 1);
 	for(uint8_t idx = 0;idx < drivesPerChannel;idx++){
 		DriveAdr target = chanToPortAdr(chan, idx);
@@ -458,6 +495,7 @@ void MidiFloppyMain::resetChannel(uint8_t chan){
 }
 
 void MidiFloppyMain::controlChange(uint8_t chan, uint8_t c, uint8_t val){
+
 	if(c == 120 || c == 121 || c == 123){
 		resetChannel(chan);
 		// Reset
@@ -487,15 +525,15 @@ void MidiFloppyMain::restoreFlash(){
 
 void MidiFloppyMain::pitchBend(uint8_t chan, int16_t val){
 	float pb = std::pow(2.0f, (((float)val/8192.0f)));
-	pitchBends[chan] = pb;
-	// Must resend all notes again with new PB value
-	channelUpdateFlag |= 1 << chan;
-	//sendNotesForChannel(chan);
 
-	// Apply pitchbend to all notes on channel
-//	for(auto it = notes[chan].begin(); it!=notes[chan].end(); ++it){
-//		it->pitchbend =  pb;
-//	}
+	if(singleChannelInput){ // PB set on all channels
+		for(uint8_t i = 0;i < channels;i++){
+			pitchBends[i] = pb;
+			channelUpdateFlag |= 1 << i;
+		}
+		return;
+	}
+	pitchBends[chan] = pb;
 
 	if(operationMode == MidiFloppyMain_modes::direct1port){
 		MidiNote *note = &notes[chan].back();
@@ -567,7 +605,13 @@ CommandStatus MidiFloppyMain::command(const ParsedCommand& cmd,std::vector<Comma
 			resetDrive(255, 255); // Reset all drives
 		}
 	case MidiFloppyMain_commands::enabledPorts:
-	return handleGetSet(cmd, replies, this->enabledPorts);
+		return handleGetSet(cmd, replies, this->enabledPorts);
+
+	case MidiFloppyMain_commands::ignoreChannel:
+			if(cmd.type == CMDtype::set){
+				resetAll();
+			}
+			return handleGetSet(cmd, replies, singleChannelInput);
 	default:
 		result = CommandStatus::NOT_FOUND;
 		break;
