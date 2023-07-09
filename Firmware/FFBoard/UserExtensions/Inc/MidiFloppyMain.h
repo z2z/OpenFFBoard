@@ -150,7 +150,7 @@ protected:
 
 class MidiFloppyMain: public FloppyMain_itf, public MidiHandler, public FFBoardMain, public PersistentStorage {
 	enum class MidiFloppyMain_commands : uint32_t{
-		reset,drivesPerPort,extclk,mode,enable,spispeed,enableidx,enabledPorts,ignoreChannel
+		reset,drivesPerPort,extclk,mode,enable,spispeed,enableidx,enabledPorts,ignoreChannel,midisync
 	};
 
 	/**
@@ -187,6 +187,7 @@ private:
 	bool singleChannelInput = false; // Single channel input mode
 	std::array<std::vector<MidiNote>,channels> mergedNotes;
 
+	bool midisync = true;
 
 public:
 	MidiFloppyMain();
@@ -222,6 +223,7 @@ public:
 	void mergeDistributeChannels(std::array<std::vector<MidiNote>,channels> *mergedNotes);
 
 	void midiTick();
+	void channelUpdate();
 
 
 	virtual std::string getHelpstring(){

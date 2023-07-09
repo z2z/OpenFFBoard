@@ -249,6 +249,7 @@ MidiFloppyMain::MidiFloppyMain() {
 	registerCommand("reset", MidiFloppyMain_commands::reset, "Reset drives",CMDFLAG_GET);
 	registerCommand("enabledports", MidiFloppyMain_commands::enabledPorts, "Enabled ports",CMDFLAG_GET | CMDFLAG_SET);
 	registerCommand("ignorechan", MidiFloppyMain_commands::ignoreChannel, "Singlechannel input mode",CMDFLAG_GET | CMDFLAG_SET);
+	registerCommand("midisync", MidiFloppyMain_commands::midisync, "Update on midi tick",CMDFLAG_GET | CMDFLAG_SET);
 //	resetAll();
 
 }
@@ -258,7 +259,12 @@ MidiFloppyMain::~MidiFloppyMain() {
 }
 
 void MidiFloppyMain::update(){
-	osDelay(100);
+	if(!midisync){
+		osDelay(10);
+		channelUpdate();
+	}else{
+		osDelay(100);
+	}
 	if(!initialized)
 		initialize();
 
@@ -269,7 +275,7 @@ void MidiFloppyMain::initialize(){
 	initialized = true;
 }
 
-void MidiFloppyMain::midiTick(){
+void MidiFloppyMain::channelUpdate(){
 	std::array<std::vector<MidiNote>,channels>* curNotes = &this->notes;
 	if(singleChannelInput && channelUpdateFlag){
 		for(auto& c : mergedNotes){
@@ -294,6 +300,11 @@ void MidiFloppyMain::midiTick(){
 		}
 		channelUpdateFlag = 0;
 	}
+}
+
+void MidiFloppyMain::midiTick(){
+	if(midisync)
+		channelUpdate();
 }
 
 /**
@@ -511,6 +522,7 @@ void MidiFloppyMain::saveFlash(){
 	uint16_t val = (uint16_t)this->operationMode & 0x7;
 	val |= extclkmode ? 0x8 : 0;
 	val |= (spispeed & 0x7) << 4;
+	val |= midisync ? 0x80 : 0;
 	Flash_Write(ADR_MIDIFLOPPY_CONF1, val);
 }
 
@@ -519,6 +531,7 @@ void MidiFloppyMain::restoreFlash(){
 	if(Flash_Read(ADR_MIDIFLOPPY_CONF1, &val)){
 		this->operationMode = (MidiFloppyMain_modes) (val & 0x7); // 3 bit
 		extclkmode = val & 0x8;
+		midisync = val & 0x80;
 		setSpiSpeed((val >> 4) & 0x7); // 3 bit
 	}
 }
@@ -606,6 +619,9 @@ CommandStatus MidiFloppyMain::command(const ParsedCommand& cmd,std::vector<Comma
 		}
 	case MidiFloppyMain_commands::enabledPorts:
 		return handleGetSet(cmd, replies, this->enabledPorts);
+
+	case MidiFloppyMain_commands::midisync:
+		return handleGetSet(cmd, replies, this->midisync);
 
 	case MidiFloppyMain_commands::ignoreChannel:
 			if(cmd.type == CMDtype::set){
