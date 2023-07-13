@@ -21,6 +21,7 @@
 #include "SPI.h"
 #include "ExtiHandler.h"
 #include "math.h"
+#include "semaphore.hpp"
 
 #if (USE_SPI_CRC == 0U)
 #error "CRC must be enabled!"
@@ -188,6 +189,10 @@ private:
 	std::array<std::vector<MidiNote>,channels> mergedNotes;
 
 	bool midisync = true;
+
+	cpp_freertos::BinarySemaphore notesSem = cpp_freertos::BinarySemaphore(true);
+
+	static const uint32_t tickTime_ms = 10;
 
 public:
 	MidiFloppyMain();

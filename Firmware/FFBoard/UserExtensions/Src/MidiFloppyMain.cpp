@@ -260,7 +260,7 @@ MidiFloppyMain::~MidiFloppyMain() {
 
 void MidiFloppyMain::update(){
 	if(!midisync){
-		osDelay(10);
+		osDelay(tickTime_ms);
 		channelUpdate();
 	}else{
 		osDelay(100);
@@ -276,6 +276,9 @@ void MidiFloppyMain::initialize(){
 }
 
 void MidiFloppyMain::channelUpdate(){
+	if(!notesSem.Take(tickTime_ms)){
+		return;
+	}
 	std::array<std::vector<MidiNote>,channels>* curNotes = &this->notes;
 	if(singleChannelInput && channelUpdateFlag){
 		for(auto& c : mergedNotes){
@@ -300,6 +303,7 @@ void MidiFloppyMain::channelUpdate(){
 		}
 		channelUpdateFlag = 0;
 	}
+	notesSem.Give();
 }
 
 void MidiFloppyMain::midiTick(){
@@ -450,9 +454,10 @@ void MidiFloppyMain::sendNotesForChannel(uint8_t channel,std::vector<MidiNote>& 
 void MidiFloppyMain::noteOn(uint8_t chan, uint8_t note,uint8_t velocity){
 	// If note already present remove?
 //	noteOff(chan,note,velocity);
-
+	notesSem.Take();
 	MidiNote midinote(note, velocity, chan);
 	notes[chan].push_back(midinote);
+	notesSem.Give();
 
 	if(operationMode == MidiFloppyMain_modes::direct1port){
 		sendFrequency(chan,midinote.getFrequency() * pitchBends[chan],1); // Send direct
@@ -464,7 +469,7 @@ void MidiFloppyMain::noteOn(uint8_t chan, uint8_t note,uint8_t velocity){
 }
 
 void MidiFloppyMain::noteOff(uint8_t chan, uint8_t note,uint8_t velocity){
-
+	notesSem.Take();
 	for(auto it = notes[chan].begin(); it!=notes[chan].end(); ++it){
 		if(it->note == note){
 			notes[chan].erase(it);
@@ -483,6 +488,7 @@ void MidiFloppyMain::noteOff(uint8_t chan, uint8_t note,uint8_t velocity){
 //		sendNotesForChannel(chan);
 		channelUpdateFlag |= 1 << chan;
 	}
+	notesSem.Give();
 }
 
 /**
@@ -495,9 +501,11 @@ void MidiFloppyMain::resetAll(){
 }
 
 void MidiFloppyMain::resetChannel(uint8_t chan){
+	notesSem.Take();
 	notes[chan].clear();
 	pitchBends[chan] = 1;
 	mergedNotes[chan].clear();
+	notesSem.Give();
 //	sendFrequency(chan, 0, 1);
 	for(uint8_t idx = 0;idx < drivesPerChannel;idx++){
 		DriveAdr target = chanToPortAdr(chan, idx);
@@ -523,6 +531,7 @@ void MidiFloppyMain::saveFlash(){
 	val |= extclkmode ? 0x8 : 0;
 	val |= (spispeed & 0x7) << 4;
 	val |= midisync ? 0x80 : 0;
+	val |= singleChannelInput ? 0x100 : 0;
 	Flash_Write(ADR_MIDIFLOPPY_CONF1, val);
 }
 
@@ -532,6 +541,7 @@ void MidiFloppyMain::restoreFlash(){
 		this->operationMode = (MidiFloppyMain_modes) (val & 0x7); // 3 bit
 		extclkmode = val & 0x8;
 		midisync = val & 0x80;
+		singleChannelInput = val & 0x100;
 		setSpiSpeed((val >> 4) & 0x7); // 3 bit
 	}
 }
