@@ -69,7 +69,7 @@ jobs:
       #   run: find etc/usr/artifacts/ -name '*.hex' -exec cp {} etc/usr/fw/ \;
 
       - name: Zip firmware
-        run: zip -qq -r Firmware.zip OpenFFBoard-Firmware-* README.md
+        run: zip -qq -r "OpenFFBoard-Firmware-v${{ github.ref_name }}.zip" OpenFFBoard-Firmware-* README.md
         working-directory: etc/usr/artifacts/
 
       - name: Zip configurator
